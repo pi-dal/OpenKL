@@ -16,19 +16,19 @@ LEGACY_KUZU_DB_PATH = Path.home() / ".ok" / "kuzu"
 # LadybugDB schema definitions
 SCHEMA = [
     # Memory nodes
-    "CREATE NODE TABLE MemoryNote(id STRING PRIMARY KEY, text STRING, ts STRING, tags STRING[], vec FLOAT[384]);",
+    "CREATE NODE TABLE IF NOT EXISTS MemoryNote(id STRING PRIMARY KEY, text STRING, ts STRING, tags STRING[], vec FLOAT[384]);",
     # Grounding Store nodes
-    "CREATE NODE TABLE Doc(id STRING PRIMARY KEY, path STRING, sha256 STRING);",
-    "CREATE NODE TABLE Chunk(id STRING PRIMARY KEY, text STRING, span STRING, vec FLOAT[384]);",
+    "CREATE NODE TABLE IF NOT EXISTS Doc(id STRING PRIMARY KEY, path STRING, sha256 STRING);",
+    "CREATE NODE TABLE IF NOT EXISTS Chunk(id STRING PRIMARY KEY, text STRING, span STRING, vec FLOAT[384]);",
     # Entity and topic nodes
-    "CREATE NODE TABLE Entity(id STRING PRIMARY KEY, name STRING, type STRING);",
-    "CREATE NODE TABLE Topic(id STRING PRIMARY KEY, name STRING);",
+    "CREATE NODE TABLE IF NOT EXISTS Entity(id STRING PRIMARY KEY, name STRING, type STRING);",
+    "CREATE NODE TABLE IF NOT EXISTS Topic(id STRING PRIMARY KEY, name STRING);",
     # Relationships
-    "CREATE REL TABLE HAS_CHUNK(FROM Doc TO Chunk);",
-    "CREATE REL TABLE Mentions(FROM Chunk TO Entity);",
-    "CREATE REL TABLE MemMentions(FROM MemoryNote TO Entity);",
-    "CREATE REL TABLE DerivedFrom(FROM MemoryNote TO Chunk);",
-    "CREATE REL TABLE HasTopic(FROM MemoryNote TO Topic);",
+    "CREATE REL TABLE IF NOT EXISTS HAS_CHUNK(FROM Doc TO Chunk);",
+    "CREATE REL TABLE IF NOT EXISTS Mentions(FROM Chunk TO Entity);",
+    "CREATE REL TABLE IF NOT EXISTS MemMentions(FROM MemoryNote TO Entity);",
+    "CREATE REL TABLE IF NOT EXISTS DerivedFrom(FROM MemoryNote TO Chunk);",
+    "CREATE REL TABLE IF NOT EXISTS HasTopic(FROM MemoryNote TO Topic);",
 ]
 
 # Global connection
@@ -62,18 +62,13 @@ def init_db(db_path: Path | None = None) -> graphdb.Connection:
         conn.execute("LOAD VECTOR;")
         logger.info("Vector extension installed and loaded")
     except Exception as e:
-        logger.warning(f"Failed to install vector extension: {e}")
+        logger.error("Failed to install vector extension: %s", e)
+        raise RuntimeError("Vector extension is required for OpenKL") from e
 
     # Create schema
     for stmt in SCHEMA:
-        try:
-            conn.execute(stmt)
-            logger.debug(f"Executed schema statement: {stmt[:50]}...")
-        except Exception as e:
-            # Ignore "already exists" errors
-            if "already exists" not in str(e).lower():
-                logger.error(f"Failed to execute schema statement: {stmt}")
-                raise
+        conn.execute(stmt)
+        logger.debug(f"Executed schema statement: {stmt[:50]}...")
 
     _connection = conn
     logger.info(f"Database initialized at {db_path}")

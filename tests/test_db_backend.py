@@ -1,5 +1,7 @@
 import logging
 
+import pytest
+
 import openkl.db as db_module
 from openkl.db import close_connection, init_db
 
@@ -8,9 +10,31 @@ def test_init_db_creates_core_schema(tmp_path):
     conn = init_db(tmp_path / "ladybug")
     try:
         result = conn.execute("MATCH (m:MemoryNote) RETURN count(m)")
-        assert list(result)[0][0] == 0
+        row = next(iter(result))
+        assert row[0] == 0
     finally:
         close_connection()
+
+
+def test_init_db_raises_when_vector_extension_is_unavailable(tmp_path, monkeypatch):
+    class FakeDatabase:
+        def __init__(self, path: str):
+            self.path = path
+
+    class FakeConnection:
+        def __init__(self, db: FakeDatabase):
+            self.db = db
+
+        def execute(self, stmt: str):
+            if stmt == "INSTALL VECTOR;":
+                raise RuntimeError("vector extension unavailable")
+            return []
+
+    monkeypatch.setattr(db_module.graphdb, "Database", FakeDatabase)
+    monkeypatch.setattr(db_module.graphdb, "Connection", FakeConnection)
+
+    with pytest.raises(RuntimeError, match="Vector extension is required"):
+        init_db(tmp_path / "ladybug")
 
 
 def test_init_db_warns_when_legacy_kuzu_path_exists(tmp_path, monkeypatch, caplog):

@@ -176,24 +176,25 @@ class MemoryManager:
         conn = get_connection()
 
         # Check if memory exists
-        result = conn.execute(f"MATCH (m:MemoryNote {{id: '{memory_id}'}}) RETURN m")
+        result = conn.execute(
+            "MATCH (m:MemoryNote {id: $id}) RETURN m", {"id": memory_id}
+        )
         if not list(result):
             return False
 
         # Build update query
         updates = []
+        params: dict[str, Any] = {"id": memory_id}
         if text is not None:
-            escaped_text = text.replace("'", "\\'")
-            updates.append(f"m.text = '{escaped_text}'")
+            updates.append("m.text = $text")
+            params["text"] = text
         if tags is not None:
-            tags_str = "[" + ", ".join([f"'{tag}'" for tag in tags]) + "]"
-            updates.append(f"m.tags = {tags_str}")
+            updates.append("m.tags = $tags")
+            params["tags"] = tags
 
         if updates:
-            update_query = (
-                f"MATCH (m:MemoryNote {{id: '{memory_id}'}}) SET {', '.join(updates)}"
-            )
-            conn.execute(update_query)
+            update_query = f"MATCH (m:MemoryNote {{id: $id}}) SET {', '.join(updates)}"
+            conn.execute(update_query, params)
 
         # Update topics if provided
         if topics is not None:

@@ -2,9 +2,47 @@
 Vector search utilities leveraging LadybugDB's native vector index capabilities.
 """
 
+import math
 from typing import Any, cast
 
 from .db import get_connection
+
+MAX_VECTOR_SEARCH_K = 1000
+
+
+def _normalize_query_vector(query_vector: Any) -> list[float]:
+    """Convert a vector-like value into a finite numeric list."""
+    if hasattr(query_vector, "tolist"):
+        query_vector = query_vector.tolist()
+
+    if not isinstance(query_vector, (list, tuple)):
+        raise TypeError("query_vector must be a list or tuple of numbers")
+
+    try:
+        normalized = [float(value) for value in query_vector]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("query_vector must contain only numeric values") from exc
+
+    if not normalized:
+        raise ValueError("query_vector must not be empty")
+    if not all(math.isfinite(value) for value in normalized):
+        raise ValueError("query_vector must contain only finite numeric values")
+
+    return normalized
+
+
+def _normalize_k(k: int) -> int:
+    """Validate vector-search result count before query interpolation."""
+    if not isinstance(k, int) or isinstance(k, bool):
+        raise TypeError("k must be an integer")
+    if not 1 <= k <= MAX_VECTOR_SEARCH_K:
+        raise ValueError(f"k must be between 1 and {MAX_VECTOR_SEARCH_K}")
+    return k
+
+
+def _serialize_vector(values: list[float]) -> str:
+    """Serialize a validated numeric vector for LadybugDB vector procedures."""
+    return "[" + ", ".join(f"{value:.17g}" for value in values) + "]"
 
 
 def _ensure_vector_extension_loaded(conn: Any, verbose: bool = False) -> None:
@@ -145,6 +183,9 @@ def search_memory_vectors(
     query_vector: Any, k: int = 5, verbose: bool = False
 ) -> list[dict[str, Any]]:
     """Search memory notes using LadybugDB's native vector index."""
+    query_vector = _normalize_query_vector(query_vector)
+    k = _normalize_k(k)
+
     conn = get_connection()
 
     # Ensure vector extension is loaded
@@ -153,12 +194,8 @@ def search_memory_vectors(
     # Ensure vector indexes exist
     _ensure_vector_indexes_exist(conn, verbose)
 
-    # Convert numpy array to list if needed
-    if hasattr(query_vector, "tolist"):
-        query_vector = query_vector.tolist()
-
     # Create query with inline vector values
-    vector_str = str(query_vector)
+    vector_str = _serialize_vector(query_vector)
     query = f"""
         CALL QUERY_VECTOR_INDEX(
             'MemoryNote',
@@ -196,6 +233,9 @@ def search_chunk_vectors(
     query_vector: Any, k: int = 5, verbose: bool = False
 ) -> list[dict[str, Any]]:
     """Search document chunks using LadybugDB's native vector index."""
+    query_vector = _normalize_query_vector(query_vector)
+    k = _normalize_k(k)
+
     conn = get_connection()
 
     # Ensure vector extension is loaded
@@ -204,12 +244,8 @@ def search_chunk_vectors(
     # Ensure vector indexes exist
     _ensure_vector_indexes_exist(conn, verbose)
 
-    # Convert numpy array to list if needed
-    if hasattr(query_vector, "tolist"):
-        query_vector = query_vector.tolist()
-
     # Create query with inline vector values
-    vector_str = str(query_vector)
+    vector_str = _serialize_vector(query_vector)
     query = f"""
         CALL QUERY_VECTOR_INDEX(
             'Chunk',
