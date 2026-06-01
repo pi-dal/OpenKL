@@ -1,18 +1,19 @@
 """
-Database layer using Kùzu DB for graph storage and vector search.
+Database layer using LadybugDB for graph storage and vector search.
 """
 
 import logging
 from pathlib import Path
 
-import kuzu
+import ladybug as graphdb
 
 logger = logging.getLogger(__name__)
 
 # Default database path
-DB_PATH = Path.home() / ".ok" / "kuzu"
+DB_PATH = Path.home() / ".ok" / "ladybug"
+LEGACY_KUZU_DB_PATH = Path.home() / ".ok" / "kuzu"
 
-# Kùzu schema definitions
+# LadybugDB schema definitions
 SCHEMA = [
     # Memory nodes
     "CREATE NODE TABLE MemoryNote(id STRING PRIMARY KEY, text STRING, ts STRING, tags STRING[], vec FLOAT[384]);",
@@ -31,22 +32,29 @@ SCHEMA = [
 ]
 
 # Global connection
-_connection: kuzu.Connection | None = None
+_connection: graphdb.Connection | None = None
 
 
-def init_db(db_path: Path | None = None) -> kuzu.Connection:
-    """Initialize the Kùzu database with schema."""
+def init_db(db_path: Path | None = None) -> graphdb.Connection:
+    """Initialize the LadybugDB database with schema."""
     global _connection
 
     if db_path is None:
         db_path = DB_PATH
+        if LEGACY_KUZU_DB_PATH.exists() and not DB_PATH.exists():
+            logger.warning(
+                "Found legacy Kuzu database at %s. OpenKL now uses LadybugDB at %s. "
+                "Rebuild or migrate the derived graph before relying on old graph data.",
+                LEGACY_KUZU_DB_PATH,
+                DB_PATH,
+            )
 
     # Ensure directory exists
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Create database and connection
-    db = kuzu.Database(str(db_path))
-    conn = kuzu.Connection(db)
+    db = graphdb.Database(str(db_path))
+    conn = graphdb.Connection(db)
 
     # Install and load vector extension
     try:
@@ -72,7 +80,7 @@ def init_db(db_path: Path | None = None) -> kuzu.Connection:
     return conn
 
 
-def get_connection() -> kuzu.Connection:
+def get_connection() -> graphdb.Connection:
     """Get the database connection, initializing if needed."""
     global _connection
 
@@ -82,7 +90,7 @@ def get_connection() -> kuzu.Connection:
     return _connection
 
 
-def close_connection():
+def close_connection() -> None:
     """Close the database connection."""
     global _connection
     if _connection is not None:

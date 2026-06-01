@@ -183,7 +183,8 @@ class MemoryManager:
         # Build update query
         updates = []
         if text is not None:
-            updates.append(f"m.text = '{text.replace("'", "\\'")}'")
+            escaped_text = text.replace("'", "\\'")
+            updates.append(f"m.text = '{escaped_text}'")
         if tags is not None:
             tags_str = "[" + ", ".join([f"'{tag}'" for tag in tags]) + "]"
             updates.append(f"m.tags = {tags_str}")

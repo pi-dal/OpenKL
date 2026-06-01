@@ -10,7 +10,7 @@ A local-first, open-source knowledge and memory layer for AI agents. OpenKL prov
 
 - **Memory Management**: Distilled insights, facts, and user-provided notes with temporal organization
 - **Grounding Store**: External knowledge corpus (docs, media, logs, transcripts) with automatic chunking
-- **Knowledge Graph**: Structured entities and relationships with provenance using Kùzu DB
+- **Knowledge Graph**: Structured entities and relationships with provenance using LadybugDB
 - **Citations**: Reproducible, verifiable, portable references with both transient and persisted modes
 - **Vector Search**: Native HNSW vector indexes with FastEmbed for semantic similarity
 - **Hybrid Search**: Cross-surface search across memory and grounding store
@@ -115,11 +115,15 @@ uv run ok --help
 
 ## Architecture
 
-OpenKL uses a file-based approach with an embedded Kùzu graph database:
+OpenKL uses a file-based approach with an embedded LadybugDB graph database:
 
 - **Files**: Canonical content (grep-friendly)
 - **Graph**: Derived structure (fast retrieval)
 - **Citations**: Stable provenance and verification
+
+### LadybugDB Migration
+
+OpenKL now uses LadybugDB instead of the archived KuzuDB package. Existing `~/.ok/kuzu` graph data is treated as a legacy derived index; keep it as a backup and rebuild into `~/.ok/ladybug` before relying on old graph state.
 
 ## License
 

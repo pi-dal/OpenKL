@@ -35,11 +35,11 @@ def doctor(
 
     # Check Python packages
     try:
-        import kuzu  # noqa: F401
+        import ladybug  # noqa: F401
 
-        console.print("[green]✓[/green] Kùzu DB available")
+        console.print("[green]✓[/green] LadybugDB available")
     except ImportError:
-        console.print("[red]✗[/red] Kùzu DB not found")
+        console.print("[red]✗[/red] LadybugDB not found")
 
     try:
         import fastembed  # noqa: F401
